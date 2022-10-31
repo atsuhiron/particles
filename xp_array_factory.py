@@ -20,22 +20,25 @@ def is_cupy_env() -> bool:
 
 
 def import_numpy_or_cupy():
-    global _IS_CUPY_ENV
+    global _IS_CUPY_ENV, _SHOW_XP_ENV
 
     if not _TRY_USE_CUPY:
         if not _SHOW_XP_ENV:
             print("using numpy")
             _IS_CUPY_ENV = False
+        _SHOW_XP_ENV = True
         return importlib.import_module("numpy")
     try:
         if not _SHOW_XP_ENV:
             print("using cupy")
             _IS_CUPY_ENV = True
+        _SHOW_XP_ENV = True
         return importlib.import_module("cupy")
     except Exception:
         if not _SHOW_XP_ENV:
             print("using numpy")
             _IS_CUPY_ENV = False
+        _SHOW_XP_ENV = True
         return importlib.import_module("numpy")
 
 
