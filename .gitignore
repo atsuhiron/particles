@@ -1,6 +1,8 @@
 *.npy
 *.csv
 *.tsv
+*.mp4
+frames/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
