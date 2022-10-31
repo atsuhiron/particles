@@ -1,9 +1,14 @@
+import os
 from typing import Tuple
+from typing import Optional
 
 import matplotlib.pyplot as plt
+import tqdm
 
 from xp_array_factory import xparray
 import xp_array_factory as xaf
+import path_service as ps
+import log_array
 
 np = xaf.import_numpy_or_cupy()
 
@@ -42,35 +47,58 @@ def calc_delta_x(step: float, vx: xparray, vy: xparray) -> Tuple[xparray, xparra
     return step * vx, step * vy
 
 
-def show_quiver(x: xparray, y: xparray, fx: xparray, fy: xparray):
+def show_quiver(x: xparray, y: xparray, fx: xparray, fy: xparray, f_name: Optional[str] = None):
     f_norm = np.linalg.norm(np.c_[fx, fy], axis=1)
     if xaf.is_cupy_env():
         x, y, fx, fy, f_norm = xaf.to_numpy(x, y, fx, fy, f_norm)
     vec_ratio = 1
     plt.plot(x, y, "ko", markersize=8)
     plt.quiver(x, y, fx/f_norm*vec_ratio, fy/f_norm*vec_ratio, f_norm)
-    plt.show()
+    if f_name is None:
+        plt.show()
+    else:
+        plt.savefig(f_name)
+        plt.close()
 
 
 if __name__ == "__main__":
+    frame_dir = "frames"
     p_num = 36
-    step_size = 0.1
+    step_size = 0.01
     if_coef = 1.0
     _mass = 1.0
-    np.random.seed(125)
+    total_steps = 200
+    use_double = False
 
-    _x = np.random.random(p_num).astype(np.float32) * 10
-    _y = np.random.random(p_num).astype(np.float32) * 10
+    # initialize
+    np.random.seed(125)
+    if use_double:
+        dtype = np.float64
+    else:
+        dtype = np.float32
+    _x = np.random.random(p_num).astype(dtype) * 4
+    _y = np.random.random(p_num).astype(dtype) * 4
     _vx, _vy = np.zeros_like(_x), np.zeros_like(_y)
+    log_arr = log_array.LogArray(total_steps, p_num)
+    path = ps.PathService(frame_dir)
+    path.reset_dir()
 
     _fx, _fy = calc_interactive_force(if_coef, _x, _y)
-    show_quiver(_x, _y, _fx, _fy)
-    _dvx, _dvy = calc_delta_v(step_size, _mass, _fx, _fy)
-    # ここに抵抗の処理
-    _vx += _dvx
-    _vy += _dvy
-    _dx, _dy = calc_delta_x(step_size, _vx, _vy)
-    _x += _dx
-    _y += _dy
+    log_arr.log(0, _x, _y, _vx, _vy, _fx, _fy)
+    for i in tqdm.tqdm(range(1, total_steps), desc="Calc"):
+        _fx, _fy = calc_interactive_force(if_coef, _x, _y)
+        _dvx, _dvy = calc_delta_v(step_size, _mass, _fx, _fy)
+        # ここに抵抗の処理
+        _vx += _dvx
+        _vy += _dvy
+        _dx, _dy = calc_delta_x(step_size, _vx, _vy)
+        _x += _dx
+        _y += _dy
+        log_arr.log(i, _x, _y, _vx, _vy, _fx, _fy)
 
-    show_quiver(_x, _y, _fx, _fy)
+    for i in tqdm.tqdm(range(total_steps), desc="drawing"):
+        _x, _y, _fx, _fy = log_arr.get(i)
+        show_quiver(_x, _y, _fx, _fy,  path.gen_frame_path(i))
+
+    mov_path = "out.mp4"
+    os.system("ffmpeg -r 20 -i {} -vcodec libx264 -pix_fmt yuv420p -r 20 {}".format(path.gen_template_frame_path(), mov_path))
