@@ -1,6 +1,7 @@
 from typing import Optional
 from typing import Iterable
 from multiprocessing.pool import ThreadPool
+from dataclasses import dataclass
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -15,8 +16,12 @@ np = xaf.import_numpy_or_cupy()
 matplotlib.use('Agg')
 
 
+@dataclass
 class DrawQuiverParam:
-    pass
+    x_min: float
+    x_max: float
+    y_min: float
+    y_max: float
 
 
 draw_quiver_args = tuple[xparray, xparray, xparray, xparray, str, DrawQuiverParam]
@@ -30,8 +35,10 @@ def draw_quiver(x: xparray, y: xparray, fx: xparray, fy: xparray,
 
     fig = plt.figure()
     ax = fig.add_subplot()
-    ax.plot(x, y, "ko", markersize=8)
+    ax.plot(x, y, "o", mfc="#00000050", markersize=8)
     ax.quiver(x, y, fx / f_norm, fy / f_norm, f_norm)
+    ax.set_xlim([draw_param.x_min, draw_param.x_max])
+    ax.set_ylim([draw_param.y_min, draw_param.y_max])
     if f_name is None:
         plt.show()
     else:
@@ -44,7 +51,7 @@ def _show_quiver_wrap(args: draw_quiver_args):
 
 
 def _make_args(log_arr: LogArray, path_service: ps.PathService) -> Iterable[draw_quiver_args]:
-    dqp = DrawQuiverParam()
+    dqp = DrawQuiverParam(*log_arr.get_xy_lim())
     for i in range(log_arr.total_steps):
         x, y, fx, fy = log_arr.get(i)
         frame_path = path_service.gen_frame_path(i)

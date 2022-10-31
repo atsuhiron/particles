@@ -31,3 +31,6 @@ class LogArray:
 
     def get(self, index: int) -> tuple[xparray, xparray, xparray, xparray]:
         return self.x[index], self.y[index], self.fx[index], self.fy[index]
+
+    def get_xy_lim(self) -> tuple[float, float, float, float]:
+        return float(self.x.min()), float(self.x.max()), float(self.y.min()), float(self.y.max())
