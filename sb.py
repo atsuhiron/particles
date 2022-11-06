@@ -38,6 +38,15 @@ def calc_interactive_force(coef: float, x_pos_arr: xparray, y_pos_arr: xparray) 
     return inter_force_sum[:, 0], inter_force_sum[:, 1]
 
 
+def calc_friction_resistance(coef: float, vx_arr: xparray, vy_arr: xparray) -> Tuple[xparray, xparray]:
+    v_arr = np.array([vx_arr, vy_arr])
+    norm = np.linalg.norm(v_arr, axis=0)
+    resistance_norm = coef * norm
+    norm[norm == 0] = 1.0
+    unit_v_arr = v_arr / norm
+    return resistance_norm * unit_v_arr[0], resistance_norm * unit_v_arr[1]
+
+
 def calc_delta_v(step: float, mass: float, fx: xparray, fy: xparray) -> Tuple[xparray, xparray]:
     return step * fx / mass, step * fy / mass
 
@@ -51,6 +60,7 @@ if __name__ == "__main__":
     p_num = 36
     step_size = 0.01
     if_coef = 1.0
+    fr_coef = -0.05
     _mass = 1.0
     total_steps = 200
     use_double = False
@@ -70,10 +80,19 @@ if __name__ == "__main__":
 
     _fx, _fy = calc_interactive_force(if_coef, _x, _y)
     _log_arr.log(0, _x, _y, _vx, _vy, _fx, _fy)
+    _fx, _fy = np.zeros_like(_x), np.zeros_like(_y)
     for i in tqdm.tqdm(range(1, total_steps), desc="Calc"):
-        _fx, _fy = calc_interactive_force(if_coef, _x, _y)
+        # 相互作用による力
+        _dfx, _dfy = calc_interactive_force(if_coef, _x, _y)
+        _fx += _dfx
+        _fy += _dfy
+
+        # 粘性抵抗による力
+        _dfx, _dfy = calc_friction_resistance(fr_coef, _vx, _vy)
+        _fx += _dfx
+        _fy += _dfy
+
         _dvx, _dvy = calc_delta_v(step_size, _mass, _fx, _fy)
-        # ここに抵抗の処理
         _vx += _dvx
         _vy += _dvy
         _dx, _dy = calc_delta_x(step_size, _vx, _vy)
@@ -81,7 +100,7 @@ if __name__ == "__main__":
         _y += _dy
         _log_arr.log(i, _x, _y, _vx, _vy, _fx, _fy)
 
-    drawer.save_frames(_log_arr, path, 4)
+    drawer.save_frames(_log_arr, path, 6)
 
     mov_path = "out.mp4"
     os.system(

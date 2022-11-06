@@ -58,7 +58,7 @@ def _make_args(log_arr: LogArray, path_service: ps.PathService) -> Iterable[draw
         yield x, y, fx, fy, frame_path, dqp
 
 
-def save_frames(log_arr: LogArray, path_service: ps.PathService, num: int = 1):
+def save_frames(log_arr: LogArray, path_service: ps.PathService, num: int):
     with tqdm.tqdm(total=log_arr.total_steps, desc="Drawing") as p_bar:
         with ThreadPool(num) as pool:
             for _ in pool.imap_unordered(_show_quiver_wrap, _make_args(log_arr, path_service), chunksize=2):
