@@ -52,14 +52,14 @@ def _show_quiver_wrap(args: draw_quiver_args):
 
 def _make_args(log_arr: LogArray, path_service: ps.PathService) -> Iterable[draw_quiver_args]:
     dqp = DrawQuiverParam(*log_arr.get_xy_lim())
-    for i in range(log_arr.total_steps):
+    for i in range(log_arr.get_total_steps()):
         x, y, fx, fy = log_arr.get(i)
         frame_path = path_service.gen_frame_path(i)
         yield x, y, fx, fy, frame_path, dqp
 
 
 def save_frames(log_arr: LogArray, path_service: ps.PathService, num: int):
-    with tqdm.tqdm(total=log_arr.total_steps, desc="Drawing") as p_bar:
+    with tqdm.tqdm(total=log_arr.get_total_steps(), desc="Drawing") as p_bar:
         with ThreadPool(num) as pool:
             for _ in pool.imap_unordered(_show_quiver_wrap, _make_args(log_arr, path_service), chunksize=2):
                 p_bar.update(1)

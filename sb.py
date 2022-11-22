@@ -38,70 +38,84 @@ def calc_interactive_force(coef: float, x_pos_arr: xparray, y_pos_arr: xparray) 
     return inter_force_sum[:, 0], inter_force_sum[:, 1]
 
 
-def calc_friction_resistance(coef: float, vx_arr: xparray, vy_arr: xparray) -> Tuple[xparray, xparray]:
+def calc_friction_resistance(coef: float, vx_arr: xparray, vy_arr: xparray) -> xparray:
     v_arr = np.array([vx_arr, vy_arr])
     norm = np.linalg.norm(v_arr, axis=0)
     resistance_norm = coef * norm
     norm[norm == 0] = 1.0
     unit_v_arr = v_arr / norm
-    return resistance_norm * unit_v_arr[0], resistance_norm * unit_v_arr[1]
+    return resistance_norm * unit_v_arr
 
 
 def calc_delta_v(step: float, mass: float, fx: xparray, fy: xparray) -> Tuple[xparray, xparray]:
-    return step * fx / mass, step * fy / mass
+    return step / mass * fx, step / mass * fy
 
 
 def calc_delta_x(step: float, vx: xparray, vy: xparray) -> Tuple[xparray, xparray]:
     return step * vx, step * vy
 
 
-if __name__ == "__main__":
-    frame_dir = "frames"
-    p_num = 36
-    step_size = 0.01
-    if_coef = 1.0
-    fr_coef = -0.05
-    _mass = 1.0
-    total_steps = 200
-    use_double = False
+def calc_step(x: xparray, y: xparray, fx: xparray, fy: xparray, vx: xparray, vy: xparray,
+              interactive_force_coef: float, friction_resistance_coef: float, mass: float, step_size: float):
+    # 相互作用による力
+    _dfx, _dfy = calc_interactive_force(interactive_force_coef, x, y)
+    fx += _dfx
+    fy += _dfy
 
-    # initialize
-    np.random.seed(125)
+    # 粘性抵抗による力
+    _dfx, _dfy = calc_friction_resistance(friction_resistance_coef, vx, vy)
+    fx += _dfx
+    fy += _dfy
+
+    _dvx, _dvy = calc_delta_v(step_size, mass, fx, fy)
+    vx += _dvx
+    vy += _dvy
+    _dx, _dy = calc_delta_x(step_size, vx, vy)
+    x += _dx
+    y += _dy
+    return x, y, fx, fy, vx, vy
+
+
+def calc(particle_num: int, total_steps: int, use_double: bool,
+         interactive_force_coef: float, friction_resistance_coef: float, mass: float, step_size: float) -> xparray:
     if use_double:
         dtype = np.float64
     else:
         dtype = np.float32
-    _x = np.random.random(p_num).astype(dtype) * 4
-    _y = np.random.random(p_num).astype(dtype) * 4
-    _vx, _vy = np.zeros_like(_x), np.zeros_like(_y)
-    _log_arr = log_array.LogArray(total_steps, p_num)
+    x = np.random.random(particle_num).astype(dtype) * 4
+    y = np.random.random(particle_num).astype(dtype) * 4
+    vx, vy = np.zeros_like(x).astype(dtype), np.zeros_like(y).astype(dtype)
+    log_arr = np.zeros((total_steps, 6, particle_num), dtype=dtype)
+
+    fx, fy = calc_interactive_force(interactive_force_coef, x, y)
+    log_arr[0] = np.array([x, y, vx, vy, fx, fy])
+    fx, fy = np.zeros_like(x), np.zeros_like(y)
+    for i in tqdm.tqdm(range(1, total_steps), desc="Calc"):
+        x, y, fx, fy, vx, vy = calc_step(x, y, fx, fy, vx, vy,
+                                         interactive_force_coef, friction_resistance_coef, mass, step_size)
+        log_arr[i] = np.array([x, y, vx, vy, fx, fy])
+    return log_arr
+
+
+if __name__ == "__main__":
+    frame_dir = "frames"
+    p_num = 36
+    _step_size = 0.01
+    if_coef = 1.0
+    fr_coef = -0.05
+    _mass = 1.0
+    _total_steps = 200
+    _use_double = True
+
+    # initialize
+    np.random.seed(125)
     path = ps.PathService(frame_dir)
     path.reset_dir()
 
-    _fx, _fy = calc_interactive_force(if_coef, _x, _y)
-    _log_arr.log(0, _x, _y, _vx, _vy, _fx, _fy)
-    _fx, _fy = np.zeros_like(_x), np.zeros_like(_y)
-    for i in tqdm.tqdm(range(1, total_steps), desc="Calc"):
-        # 相互作用による力
-        _dfx, _dfy = calc_interactive_force(if_coef, _x, _y)
-        _fx += _dfx
-        _fy += _dfy
-
-        # 粘性抵抗による力
-        _dfx, _dfy = calc_friction_resistance(fr_coef, _vx, _vy)
-        _fx += _dfx
-        _fy += _dfy
-
-        _dvx, _dvy = calc_delta_v(step_size, _mass, _fx, _fy)
-        _vx += _dvx
-        _vy += _dvy
-        _dx, _dy = calc_delta_x(step_size, _vx, _vy)
-        _x += _dx
-        _y += _dy
-        _log_arr.log(i, _x, _y, _vx, _vy, _fx, _fy)
-
-    drawer.save_frames(_log_arr, path, 6)
+    # run
+    result_arr = calc(p_num, _total_steps, _use_double, if_coef, fr_coef, _mass, _step_size)
+    drawer.save_frames(log_array.LogArray(result_arr), path, 6)
 
     mov_path = "out.mp4"
-    os.system(
-        "ffmpeg -r 20 -i {} -vcodec libx264 -pix_fmt yuv420p -r 20 {}".format(path.gen_template_frame_path(), mov_path))
+    template = "ffmpeg -r 20 -i {} -vcodec libx264 -pix_fmt yuv420p -r 20 -loglevel error {}"
+    os.system(template.format(path.gen_template_frame_path(), mov_path))
