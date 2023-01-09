@@ -127,6 +127,11 @@ if __name__ == "__main__":
                 e = time.time()
                 la[i, j, k] = e-s
 
+    if xaf.is_cupy_env():
+        np.save("cupy.npy", la)
+    else:
+        np.save("numpy.npy", la)
+
     # result_arr = calc(p_num, _total_steps, _use_double, if_coef, fr_coef, _mass, _step_size)
     # drawer.save_frames(log_array.LogArray(result_arr), path, 6)
     #
