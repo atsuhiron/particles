@@ -9,7 +9,7 @@ import cupy as cp
 xparray = Union[np.ndarray, cp.ndarray]
 
 # Note: CUDA 環境がある場合、これを True にする。
-_TRY_USE_CUPY = False
+_TRY_USE_CUPY = True
 
 _SHOW_XP_ENV = False
 _IS_CUPY_ENV = False

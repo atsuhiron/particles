@@ -90,22 +90,24 @@ def calc(particle_num: int, total_steps: int, use_double: bool,
     fx, fy = calc_interactive_force(interactive_force_coef, x, y)
     log_arr[0] = np.array([x, y, vx, vy, fx, fy])
     fx, fy = np.zeros_like(x), np.zeros_like(y)
-    for i in tqdm.tqdm(range(1, total_steps), desc="Calc"):
+    #for ii in tqdm.tqdm(range(1, total_steps), desc="Calc"):
+    for ii in range(1, total_steps):
         x, y, fx, fy, vx, vy = calc_step(x, y, fx, fy, vx, vy,
                                          interactive_force_coef, friction_resistance_coef, mass, step_size)
-        log_arr[i] = np.array([x, y, vx, vy, fx, fy])
+        log_arr[ii] = np.array([x, y, vx, vy, fx, fy])
     return log_arr
 
 
 if __name__ == "__main__":
+    import time
     frame_dir = "frames"
-    p_num = 36
+    #p_num = 36
     _step_size = 0.01
     if_coef = 1.0
     fr_coef = -0.05
     _mass = 1.0
     _total_steps = 200
-    _use_double = True
+    #_use_double = True
 
     # initialize
     np.random.seed(125)
@@ -113,9 +115,21 @@ if __name__ == "__main__":
     path.reset_dir()
 
     # run
-    result_arr = calc(p_num, _total_steps, _use_double, if_coef, fr_coef, _mass, _step_size)
-    drawer.save_frames(log_array.LogArray(result_arr), path, 6)
+    p_num_arr = [64, 128, 256, 512, 1028, 2048]
+    use_double_arr = [False, True]
+    iter_num = 20
+    la = np.zeros((2, len(p_num_arr), iter_num), dtype=np.float64)
+    for i in range(2):
+        for j in tqdm.tqdm(range(len(p_num_arr))):
+            for k in tqdm.tqdm(range(iter_num), leave=False):
+                s = time.time()
+                result_arr = calc(p_num_arr[j], _total_steps, use_double_arr[i], if_coef, fr_coef, _mass, _step_size)
+                e = time.time()
+                la[i, j, k] = e-s
 
-    mov_path = "out.mp4"
-    template = "ffmpeg -r 20 -i {} -vcodec libx264 -pix_fmt yuv420p -r 20 -loglevel error {}"
-    os.system(template.format(path.gen_template_frame_path(), mov_path))
+    # result_arr = calc(p_num, _total_steps, _use_double, if_coef, fr_coef, _mass, _step_size)
+    # drawer.save_frames(log_array.LogArray(result_arr), path, 6)
+    #
+    # mov_path = "out.mp4"
+    # template = "ffmpeg -r 20 -i {} -vcodec libx264 -pix_fmt yuv420p -r 20 -loglevel error {}"
+    # os.system(template.format(path.gen_template_frame_path(), mov_path))
