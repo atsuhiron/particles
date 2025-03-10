@@ -55,12 +55,10 @@ def calc_delta_x(step: float, vx: xparray, vy: xparray) -> Tuple[xparray, xparra
     return step * vx, step * vy
 
 
-def calc_step(x: xparray, y: xparray, fx: xparray, fy: xparray, vx: xparray, vy: xparray,
+def calc_step(x: xparray, y: xparray, vx: xparray, vy: xparray,
               interactive_force_coef: float, friction_resistance_coef: float, mass: float, step_size: float):
     # 相互作用による力
-    _dfx, _dfy = calc_interactive_force(interactive_force_coef, x, y)
-    fx += _dfx
-    fy += _dfy
+    fx, fy = calc_interactive_force(interactive_force_coef, x, y)
 
     # 粘性抵抗による力
     _dfx, _dfy = calc_friction_resistance(friction_resistance_coef, vx, vy)
@@ -89,10 +87,9 @@ def calc(particle_num: int, total_steps: int, use_double: bool,
 
     fx, fy = calc_interactive_force(interactive_force_coef, x, y)
     log_arr[0] = np.array([x, y, vx, vy, fx, fy])
-    fx, fy = np.zeros_like(x), np.zeros_like(y)
-    #for ii in tqdm.tqdm(range(1, total_steps), desc="Calc"):
+    
     for ii in range(1, total_steps):
-        x, y, fx, fy, vx, vy = calc_step(x, y, fx, fy, vx, vy,
+        x, y, fx, fy, vx, vy = calc_step(x, y, vx, vy,
                                          interactive_force_coef, friction_resistance_coef, mass, step_size)
         log_arr[ii] = np.array([x, y, vx, vy, fx, fy])
     return log_arr
